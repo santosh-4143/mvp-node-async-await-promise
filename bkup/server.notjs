@@ -1,0 +1,720 @@
+var express = require('express');
+var multer = require('multer');
+
+var request = require('request');
+var dateFormat = require('dateformat');
+var in_array = require('in_array');
+var uuid = require('uuid');
+var config = require('./config.js');
+var utils = require('./utils.js');
+app = express();
+port = process.env.PORT || 8443;
+
+var http = require('http').Server(app);
+
+var cors = require('cors');
+var bodyParser = require('body-parser');
+app.use(cors({origin: true, credentials: true}));
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+
+
+var Storage = multer.diskStorage({
+    destination: function (req, file, callback) {
+        callback(null, uploadPath);
+    },
+    filename: function (req, file, callback) {
+        callback(null, file.fieldname + "_" + Date.now() + "_" + file.originalname);
+    }
+});
+
+// var upload = multer({
+//     storage: Storage
+// }).array("imgUploader", 3); //Field name and max count 
+
+// app.post("/v1/upload", function (req, res) {
+//     console.log("upload API");
+//     var filename = null;
+//     upload(req, res, function (err) {
+//         if (err) {
+//             return res.end("Something went wrong!");
+//         }
+//         var files = req.files;
+//         if (files.length > 0) {
+//             var file = files[0];
+//             console.log(file.filename)
+//             filename = file.filename
+//             res.json({"error": 0, "errorCode": 0, "imageUrl": imageUrl+filename});
+//         } else {
+//             res.json({"error": 1, "errorCode": 100, "errorMessage": "Image not uploded"});
+//         }
+
+
+//     })
+// });
+
+
+
+
+app.post('/v1/addLocations', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.name === undefined || req.body.city === undefined || req.body.postcode === undefined) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var data = {"organizationId":req.body.organizationId,"name":req.body.name,"city":req.body.city,"postcode":req.body.postcode,"isDelete":"0"};
+        config.dbname.mvp_locations.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1001, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Locations"});
+            }
+        });
+
+    }
+});
+
+
+app.post('/v1/addOrganizations', function (req, res) {
+    if (req.body.name === undefined || req.body.industry === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var auth = uuid.v1()
+        var currentTime = dateFormat(new Date().toLocaleString(config.lan, {timeZone: config.timezone}), config.timeformat);
+        var data = {"name":req.body.name,"industry":req.body.industry,"APIKey":auth,"created_at":currentTime,"isDelete":"0"};
+        config.dbname.mvp_organizations.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Organizations"});
+            }
+        });
+
+    }
+});
+
+
+app.post('/v1/addUsers', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.username === undefined || req.body.password === undefined || req.body.email === undefined || req.body.rights === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var auth = uuid.v1()
+        var currentTime = dateFormat(new Date().toLocaleString(config.lan, {timeZone: config.timezone}), config.timeformat);
+        var data = {"organizationId":req.body.organizationId,"username":req.body.username,"password":req.body.password,"email":req.body.email,"rights":req.body.rights,"created_at":currentTime,"isDelete":"0"};
+        config.dbname.mvp_users.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added user"});
+            }
+        });
+
+    }
+});
+
+
+
+app.post('/v1/addKpi', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.name === undefined || req.body.state === undefined || req.body.chart_type === undefined || req.body.aggregation === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var data = {"organizationId":req.body.organizationId,"name":req.body.name,"state":req.body.state,"chart_type":req.body.chart_type,"aggregation":req.body.aggregation,"isDelete":"0"};
+        config.dbname.mvp_kpi.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added KPI"});
+            }
+        });
+
+    }
+});
+
+
+app.post('/v1/getKpi', function (req, res) {
+    if (req.body.organizationId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_kpi.find({"isDelete": "0","organizationId":req.body.organizationId}, {"_id": 0, "name": 1,"state":1,"chart_type":1,"aggregation":1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {            
+                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+            }
+        })
+
+    }
+});
+
+
+app.post('/v1/addKpiValue', function (req, res) {
+    if (req.body.kpiid === undefined || req.body.lable === undefined || req.body.value === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var data = {"kpiid":req.body.kpiid,"lable":req.body.lable,"value":req.body.value,"isDelete":"0"};
+        config.dbname.mvp_kpivalue.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added KPIVALUE"});
+            }
+        });
+
+    }
+});
+
+
+
+app.post('/v1/getKpiValue', function (req, res) {
+    if (req.body.kpiid === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_kpivalue.find({"isDelete": "0","kpiid":req.body.kpiid}, {"_id": 0, "kpiid": 1,"lable":1,"value":1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {            
+                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+            }
+        })
+
+    }
+});
+
+app.post('/v1/addChannelGroup', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.name === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var data = {"organizationId":req.body.organizationId,"name":req.body.name,"isDelete":"0"};
+        config.dbname.mvp_channelGroup.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Channel Group"});
+            }
+        });
+
+    }
+});
+
+app.post('/v1/addChannel', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.channelGroupId === undefined || req.body.name === undefined || req.body.type === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var data = {"organizationId":req.body.organizationId,"name":req.body.name,"channelGroupId":req.body.channelGroupId,"type":req.body.type,"isDelete":"0"};
+        config.dbname.mvp_channel.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Channel"});
+            }
+        });
+
+    }
+});
+
+
+app.post('/v1/addSurvey', function (req, res) { 
+    if (req.body.organizationId === undefined || req.body.title === undefined 
+    	|| req.body.display_logo === undefined || req.body.question_timeout === undefined
+    	|| req.body.final_screen_timeout === undefined || req.body.screen_orientation === undefined
+    	|| req.body.welcome_screen_media === undefined || req.body.welcome_screen_message === undefined 
+    	|| req.body.final_screen_message === undefined 
+    	|| req.body.image_list === undefined 
+    	|| req.body.video_url === undefined  || req.body.created_by === undefined ) {   
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+} else {
+   var currentTime = dateFormat(new Date().toLocaleString(config.lan, {timeZone: config.timezone}), config.timeformat);
+   var data = {
+     "organizationId":req.body.organizationId,"title":req.body.title,
+     "display_logo":req.body.display_logo,"question_timeout":req.body.question_timeout,
+     "final_screen_timeout":req.body.final_screen_timeout,"screen_orientation":req.body.screen_orientation,
+     "welcome_screen_media":req.body.welcome_screen_media,"welcome_screen_message":req.body.welcome_screen_message,
+     "final_screen_message":req.body.final_screen_message,"state":"New",
+     "feedback_count":"0","number_of_questions":"0",
+     "image_list":req.body.image_list,"video_url":req.body.video_url,
+     "created_at": currentTime ,"created_by":req.body.created_by,
+ };
+ config.dbname.mvp_survey.insert(data, function (err, success) {
+    if (err) {
+        res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+    } else {
+
+        res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Survey"});
+    }
+});
+
+}
+});
+
+
+app.post('/v1/addQuestionsAnswer', function (req, res) {
+    if (req.body.surveyId === undefined || req.body.state === undefined || req.body.question_text === undefined || req.body.compulsory === undefined || req.body.answer_type === undefined || req.body.kpiId === undefined   ) { 
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    }else {
+        var data = {"surveyId":req.body.surveyId,"state":req.body.state,"question_text":req.body.question_text,"compulsory":req.body.compulsory,"answer_type":req.body.answer_type,"kpiId":req.body.kpiId};
+        config.dbname.mvp_question.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {            	
+            	var questionId = data._id.toString();
+            	if(req.body.answer_type=='text'){
+            		res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Question"});
+            	}else{            	
+                    config.dbname.mvp_kpivalue.find({"isDelete": "0","kpiid":req.body.kpiId}, {"_id": 0,"lable":1,"value":1}, function (err, docs) {
+                        if (err) {
+                            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                        } else { 
+
+
+                           for (var i = 0; i < docs.length; i++) {					            	
+                               (function (value) {
+                                   var label = value['lable'];
+                                   if (typeof label !== 'undefined' && label !== null && label.length > 0) {
+                                       var templable = label.toString();
+                                       value['lable'] = templable;
+                                   }
+                                   var labelvalue = value['value'];
+                                   if (typeof labelvalue !== 'undefined' && labelvalue !== null && labelvalue.length > 0) {
+                                       var templabelvalue = labelvalue.toString();
+                                       value['value'] = templabelvalue;
+                                   }
+                                   value['sequence'] = i;
+                                   value['questionId'] = questionId;
+                                   config.dbname.mvp_answer.insert(value);						                
+                               })(docs[i]);				                
+                           }				          
+                           res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added Survey"});
+
+                       }
+                   })            		
+
+                }
+                
+            }
+        });
+
+    }
+});
+
+
+app.post('/v1/signIn', function (req, res) {
+    if (req.body.email === undefined || req.body.password === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {        
+            config.dbname.mvp_users.find({"email": req.body.email,"password":req.body.password,"isDelete":"0"}, {"_id": 1, "organizationId": 1,"username":1,"email":1,"rights":1,"created_at":1}, function (err, docs) {
+                if (err) {
+                    res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                } else {  
+                    if (docs.length > 0) {
+                        var organizationId = docs[0]['organizationId'];
+                        config.dbname.mvp_organizations.find({"_id": config.mongojs.ObjectId(organizationId),"isDelete": "0"}, {"_id": 1, "name": 1,"industry":1,"APIKey":1}, function (err, org) {
+                            if (err) {
+                                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                            } else { 
+                                if(org.length > 0){
+                                    docs[0]['organization_details'] = org[0];
+                                    res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs[0]});
+                                }else{
+                                    res.json({'error': 1, 'errorCode': 1002, 'errorMessage': 'Your organization does not exist!'});
+                                }           
+                                
+                            }
+                        })                        
+                     
+                    }else{
+                      res.json({'error': 1, 'errorCode': 1001, 'errorMessage': 'User does not exist!'});  
+                    }          
+                    
+                }
+            })
+
+    }
+});
+
+
+
+
+app.post('/v1/kioskLogin', function (req, res) {
+    if (req.body.authToken === undefined || req.body.password === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_endpoints.find({"authToken":req.body.authToken,"password": req.body.password}, {"_id": 1, "name": 1,"organizationId":1,"remember_login":1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else { 
+                if(docs.length > 0){
+                    config.dbname.mvp_organizations.find({"_id":config.mongojs.ObjectId(docs[0]['organizationId'])}, {"_id": 1,"name":1,"industry":1,"APIKey":1}, function (err, organization) {
+                        if (err) {
+                            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                        } else {            
+                            if(organization.length > 0){
+                                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': organization});
+                            }else{
+                                res.json({'error': 1, 'errorCode': 1002, 'errorMessage': 'Organization not exist!'});
+                            }
+                        }
+                    })                    
+                  
+                }else{
+                   res.json({'error': 1, 'errorCode': 1001, 'errorMessage': 'AuthToken and password not match!'}); 
+                }           
+                
+            }
+        })
+
+    }
+});
+
+
+app.post('/v1/getSurveyDetails', function (req, res) {
+    if (req.body.surveyId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_survey.find({"_id":config.mongojs.ObjectId(req.body.surveyId)}, {"_id": 0, "title": 1,"display_logo":1,"question_timeout":1,"final_screen_timeout":1,"screen_orientation":1,"welcome_screen_media":1,"welcome_screen_message":1,"final_screen_message":1,"state":1,"image_list":1,"video_url":1,"feedback_count":1,"number_of_questions":1,"created_at":1,"created_by":1,"version":1}, function (err, surveyDetails) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {   
+
+                config.dbname.mvp_question.find({"surveyId":req.body.surveyId}, {"_id": 1, "state": 1,"question_text":1,"compulsory":1,"answer_type":1,"kpiId":1}, async function (err, question) {
+                    if (err) {
+                        res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                    } else { 
+                        var finalArray = [];  
+                        for(var i=0; i<question.length;i++){                     
+                            var tempArray = await processArray(question[i]);                       
+                            finalArray.push(tempArray);
+
+                        }  
+
+                        res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': {"surveyDetails":surveyDetails[0]},"questions":finalArray});
+                    }
+                })                 
+
+            }
+        })
+
+    }
+});
+
+app.post('/v1/getFirstPublishedSurvey', function (req, res) {
+    if (req.body.organizationId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var currentDate = dateFormat(new Date().toLocaleString(config.lan, {timeZone: config.timezone}), config.timeformat);        
+        config.dbname.mvp_publishSurvey.find({"organizationId": req.body.organizationId }, {"_id": 0, "surveyId": 1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {                        
+                if(docs.length > 0){
+                        console.log("surveyId :"+docs[0]['surveyId']);
+                        config.dbname.mvp_survey.find({"_id": config.mongojs.ObjectId(docs[0]['surveyId']), "state":"Published" }, {"_id": 1, "title": 1,"display_logo":1,"question_timeout":1,"final_screen_timeout":1,"screen_orientation":1,"welcome_screen_media":1,"welcome_screen_message":1,"final_screen_message":1,"state":1,"image_list":1,"video_url":1,"feedback_count":1,"number_of_questions":1,"created_at":1,"created_by":1,"version":1}).limit(1, function (err, surveyDetails) {
+                            if (err) {
+                                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                            } else {   
+                               if(surveyDetails.length > 0){
+                                    config.dbname.mvp_question.find({"surveyId":surveyDetails[0]['_id'].toString()}, {"_id": 1, "state": 1,"question_text":1,"compulsory":1,"answer_type":1,"kpiId":1}, async function (err, question) {
+                                        if (err) {
+                                            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                                        } else { 
+                                            var finalArray = [];  
+                                            for(var i=0; i<question.length;i++){                     
+                                                var tempArray = await processArray(question[i]);                       
+                                                finalArray.push(tempArray);
+
+                                            }  
+
+                                            res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': {"surveyDetails":surveyDetails[0]},"questions":finalArray});
+                                        }
+                                    }) 
+                               }else{
+                                    res.json({'error': 1, 'errorCode': 1001, 'errorMessage': 'You have no published survey yet!'});
+                               }              
+
+                            }
+                        })
+                }else{
+                    res.json({'error': 1, 'errorCode': 1001, 'errorMessage': 'You have no published survey yet or period end.'});
+                }           
+            }
+        });      
+
+
+    }
+});
+
+
+app.post('/v1/getPublishedSurveyVersion', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.surveyId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+                        config.dbname.mvp_survey.find({"_id": config.mongojs.ObjectId(req.body.surveyId),"organizationId":req.body.organizationId }, {"_id": 1, "version":1}, function (err, surveyDetails) {
+                            if (err) {
+                                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+                            } else {   
+                               if(surveyDetails.length > 0){
+                                    res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response':{"version":surveyDetails[0]['version']}}); 
+                               }else{
+                                    res.json({'error': 1, 'errorCode': 1001, 'errorMessage': 'You have no published survey yet!'});
+                               }              
+
+                            }
+                        })
+                     
+     
+
+
+    }
+});
+
+
+async function processArray(single) {
+
+    var tempData = {
+        '_id':single['_id'],
+        'state':single['state'],
+        'question_text':single['question_text'],
+        'compulsory':single['compulsory'],
+        'answer_type':single['answer_type'],
+        'kpiId':single['kpiId'],
+        'answers':[]
+
+    };                      
+    if(single['answer_type']!='text'){                      
+        var questionId = single['_id'].toString();   
+        console.log("questionId :"+questionId);                   
+        var allans = await getAllans(questionId);                      
+        console.log("allans :"+allans);
+        tempData['answers']=allans;
+
+
+        return new Promise(function (resolve, reject) {
+            if (tempData)
+                resolve(tempData);
+            else
+                reject();
+        });
+
+    }else{                         
+        return new Promise(function (resolve, reject) {
+            if (tempData)
+                resolve(tempData);
+            else
+                reject();
+        });                            
+    }
+
+}
+
+
+async function getAllans(questionId){                     
+
+ return new Promise(function (resolve, reject) {
+    config.dbname.mvp_answer.find({"questionId":questionId}, {"_id": 1, "lable": 1,"value":1,"sequence":1},  function (err, answer) {
+        if (err) {
+            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+        } else {                                       
+
+
+            if (answer){
+
+                resolve(answer);
+            }else
+            reject();                                    
+        }
+    }) ;                                            
+
+});                            
+
+}
+
+
+app.post('/v1/addOpinionFeed', function (req, res) {
+    if (req.body.organizationId === undefined || req.body.surveyId === undefined || req.body.questionId === undefined || req.body.question_text === undefined || req.body.answerId === undefined  || req.body.answer_label === undefined || req.body.answer_value === undefined || req.body.answer_type === undefined ) { 
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var data = {"organizationId":req.body.organizationId,"surveyId":req.body.surveyId,"questionId":req.body.questionId,"question_text":req.body.question_text,"answerId":req.body.answerId,"answer_label":req.body.answer_label,"answer_value":req.body.answer_value,"answer_type":req.body.answer_type,"isDelete":"0"};
+        config.dbname.mvp_opinionfeed.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added opinionfeed"});
+            }
+        });
+
+    }
+});
+
+
+app.post('/v1/addEndPoints', function (req, res) {
+    if (req.body.organizationId === undefined ||req.body.channelId === undefined || req.body.name === undefined || req.body.state === undefined || req.body.locationId === undefined || req.body.password === undefined  || req.body.remember_login === undefined ) { 
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+        var authToken = makeauth(8);
+        console.log("authToken :"+authToken);
+        var data = {"organizationId":req.body.organizationId,"channelId":req.body.channelId,"name":req.body.name,"state":req.body.state,"locationId":req.body.locationId,"password":req.body.password,"remember_login":req.body.remember_login,"authToken":authToken};
+        config.dbname.mvp_endpoints.insert(data, function (err, success) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {
+
+                res.json({"error": 0, "errorCode": 0, "successMessage": "successfully added endpoints"});
+            }
+        });
+
+    }
+});
+
+app.post('/v1/getAllSurvey', function (req, res) {
+    if (req.body.organizationId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_survey.find({"organizationId":req.body.organizationId}, {"_id": 0, "title": 1,"display_logo":1,"feedback_count":1,"number_of_questions":1,"state":1,"created_at":1,"created_by":1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {                        
+                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});           
+            }
+        })
+
+    }
+});
+
+
+app.post('/v1/getChannelGroup', function (req, res) {
+    if (req.body.organizationId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_channelGroup.find({"organizationId":req.body.organizationId,"isDelete": "0"}, {"_id": 1, "name": 1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {                        
+                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});           
+            }
+        })
+
+    }
+});
+
+
+app.post('/v1/getChannelByOrg', function (req, res) {
+    if (req.body.organizationId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_channel.find({"organizationId":req.body.organizationId,"isDelete": "0"}, {"_id": 1, "name": 1,"channelGroupId":1,"type":1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {                        
+                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});           
+            }
+        })
+
+    }
+});
+
+
+app.post('/v1/getChannelByGroup', function (req, res) {
+    if (req.body.channelGroupId === undefined ) {
+        res.json({'error': 1, 'errorCode': 1000, "errorMessage": ' All feilds are requered'});
+    } else {
+
+        config.dbname.mvp_channel.find({"channelGroupId":req.body.channelGroupId,"isDelete": "0"}, {"_id": 1, "name": 1,"channelGroupId":1,"type":1}, function (err, docs) {
+            if (err) {
+                res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+            } else {                        
+                res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});           
+            }
+        })
+
+    }
+});
+
+
+
+
+app.get('/v1/getIndustries', function (req, res) {
+    config.dbname.mvp_industries.find({"isDelete": "0"}, {"_id": 0, "name": 1}, function (err, docs) {
+        if (err) {
+            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+        } else {            
+            res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+        }
+    })
+});
+
+
+app.get('/v1/getOrganizations', function (req, res) {
+    config.dbname.mvp_organizations.find({"isDelete": "0"}, {"_id": 0, "name": 1,"industry":1,"APIKey":1}, function (err, docs) {
+        if (err) {
+            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+        } else {            
+            res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+        }
+    })
+});
+
+app.get('/v1/getCompanySize', function (req, res) {
+    config.dbname.mvp_companySize.find({"isDelete": "0"}, {"_id": 0, "size": 1}, function (err, docs) {
+        if (err) {
+            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+        } else {
+            res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+        }
+    })
+});
+
+
+app.get('/v1/getProblems', function (req, res) {
+    config.dbname.mvp_problems.find({"isDelete": "0"}, {"_id": 0, "problem": 1}, function (err, docs) {
+        if (err) {
+            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+        } else {
+            res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+        }
+    })
+});
+
+
+app.get('/v1/getCities', function (req, res) {
+    config.dbname.mvp_cities.find({"isDelete": "0"}, {"_id": 0, "city": 1}, function (err, docs) {
+        if (err) {
+            res.json({'error': 1, 'errorCode': 1000, 'errorMessage': 'Something went wrong'});
+        } else {
+            res.json({'error': 0, 'errorCode': 0, 'errorMessage': 'None', 'response': docs});
+        }
+    })
+});
+
+
+
+
+function makeauth(length) {
+   var result           = '';
+   var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+   var charactersLength = characters.length;
+   for ( var i = 0; i < length; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+   }
+   return result;
+}
+
+// app.get() problems
+
+
+app.listen(port);
+console.log('todo list RESTful API server started on: ' + port);
+
+
